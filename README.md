@@ -29,7 +29,7 @@ data._
 - 📊 **Across all markets, SQL + Python dominate**; everything else trails. A
   BI tool (Tableau/Power BI) is close to mandatory for local analyst roles.
 - 💸 **Specialized ML skills carry a pay premium** (remote USD salaries):
-  Deep Learning / PyTorch / TensorFlow ~**$150–170k** vs **~$90–116k** for
+  Deep Learning / PyTorch / TensorFlow roughly **$150–170k** vs roughly **$90–116k** for
   general analytics tooling. _(Small per-skill samples; salary data is scarce
   outside remote-USD while local postings rarely advertise pay.)_
 
