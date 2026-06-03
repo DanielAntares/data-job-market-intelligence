@@ -1,5 +1,7 @@
 # Data Job Market Intelligence
 
+[![tests](https://github.com/DanielAntares/data-job-market-intelligence/actions/workflows/tests.yml/badge.svg)](https://github.com/DanielAntares/data-job-market-intelligence/actions/workflows/tests.yml)
+
 **What skills are actually in demand for data roles, what do they pay, and how is that changing over time?**
 
 This project answers that question with data instead of guesswork. It runs an

@@ -1,0 +1,46 @@
+name: Refresh data
+
+# Re-collects postings, re-extracts skills, regenerates charts, and commits the
+# refreshed data back to the repo — so the dashboard and showcase stay current
+# without any manual work. Runs weekly, or on demand from the Actions tab.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # every Monday at 06:00 UTC
+  workflow_dispatch: {}    # adds a manual "Run workflow" button
+
+permissions:
+  contents: write          # allow the job to commit the refreshed data
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect → extract skills → charts
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+        run: |
+          python -m src.collect
+          python -m src.extract_skills
+          python -m src.figures
+          cp reports/figures/*.png docs/figures/
+
+      - name: Commit refreshed data (only if something changed)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/warehouse/*.parquet reports/figures/*.png docs/figures/*.png
+          git diff --cached --quiet || git commit -m "chore: scheduled data refresh"
+          git push
