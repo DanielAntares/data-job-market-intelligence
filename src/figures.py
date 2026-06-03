@@ -84,15 +84,19 @@ def build_roles(jobs):
     ax1.bar(counts.index, counts.values, color=_ACCENT)
     ax1.set_title("Postings by role")
     ax1.set_ylabel("postings")
+    ax1.set_ylim(0, counts.max() * 1.15)  # headroom so labels stay inside the box
     ax1.tick_params(axis="x", rotation=30)
     for x, v in enumerate(counts.values):
-        ax1.text(x, v + 0.5, str(v), ha="center", fontsize=8)
+        ax1.text(x, v + counts.max() * 0.01, str(v), ha="center", va="bottom", fontsize=8)
 
     if not sal.empty:
+        top = sal["median_salary"].max()
         ax2.bar(sal.index, sal["median_salary"], color=_ACCENT2)
         ax2.set_title("Median advertised salary by role (USD/yr)")
+        ax2.set_ylim(0, top * 1.22)  # extra headroom for the two-line labels
         for x, (v, n) in enumerate(zip(sal["median_salary"], sal["n"])):
-            ax2.text(x, v + 1500, f"${v/1000:.0f}k\n(n={n})", ha="center", fontsize=8)
+            ax2.text(x, v + top * 0.01, f"${v/1000:.0f}k\n(n={n})",
+                     ha="center", va="bottom", fontsize=8)
         ax2.tick_params(axis="x", rotation=30)
     else:
         ax2.set_visible(False)
