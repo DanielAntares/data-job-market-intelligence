@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Job Market Intelligence</title>
+<style>
+  :root { --accent:#2b6cb0; --accent2:#2f855a; --ink:#1a202c; --muted:#5a6b7b; --line:#e2e8f0; --bg:#f7fafc; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         color:var(--ink); background:var(--bg); line-height:1.6; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+  header { background: linear-gradient(135deg,#2b6cb0,#234e7d); color:#fff; padding: 56px 0 48px; }
+  header h1 { margin:0 0 8px; font-size: 2.1rem; }
+  header p { margin:0; font-size:1.15rem; opacity:.92; max-width:680px; }
+  .btns { margin-top:24px; display:flex; gap:12px; flex-wrap:wrap; }
+  .btn { display:inline-block; padding:10px 18px; border-radius:8px; text-decoration:none; font-weight:600; font-size:.95rem; }
+  .btn-light { background:#fff; color:var(--accent); }
+  .btn-ghost { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.4); }
+  section { padding: 40px 0; border-bottom:1px solid var(--line); }
+  h2 { font-size:1.5rem; margin:0 0 6px; }
+  .sub { color:var(--muted); margin:0 0 22px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px 20px; }
+  .card .big { font-size:1.6rem; font-weight:700; color:var(--accent); }
+  .card.g .big { color:var(--accent2); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:720px){ .grid2 { grid-template-columns:1fr; } }
+  figure { margin:0; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; }
+  figure img { width:100%; height:auto; border-radius:6px; display:block; }
+  figcaption { color:var(--muted); font-size:.88rem; margin-top:8px; }
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  th,td { padding:10px 14px; text-align:left; border-bottom:1px solid var(--line); font-size:.95rem; }
+  th { background:#edf2f7; }
+  .pill { display:inline-block; background:#ebf4ff; color:var(--accent); border-radius:999px; padding:2px 10px; font-size:.8rem; font-weight:600; margin-right:6px; }
+  .note { background:#fffaf0; border:1px solid #f6e05e; border-radius:10px; padding:14px 18px; color:#744210; font-size:.92rem; }
+  footer { padding:30px 0; color:var(--muted); font-size:.9rem; text-align:center; }
+  a { color:var(--accent); }
+  code { background:#edf2f7; padding:1px 6px; border-radius:4px; font-size:.88em; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>📊 Data Job Market Intelligence</h1>
+    <p>An end-to-end pipeline that collects data-job postings from 6 public APIs, extracts the
+       skills and salaries hidden in their text, and compares markets — including a focus on
+       <strong>Indonesia</strong> vs. remote-international roles.</p>
+    <div class="btns">
+      <!-- TODO: replace USER/REPO with your GitHub repo, and the demo link once deployed -->
+      <a class="btn btn-light" href="https://github.com/USER/REPO">View the code on GitHub</a>
+      <a class="btn btn-ghost" href="#findings">Jump to findings</a>
+    </div>
+  </div>
+</header>
+
+<section id="findings">
+  <div class="wrap">
+    <h2>Key findings</h2>
+    <p class="sub">From ~440 postings across 5 markets and 6 sources. Directional, not definitive — they sharpen as the collector accumulates data.</p>
+    <div class="cards">
+      <div class="card"><div class="big">SQL + Python</div>dominate demand in every market — the non-negotiable core for data roles.</div>
+      <div class="card g"><div class="big">$115k → $165k</div>median advertised salary rises Analyst → Scientist → ML Engineer (remote USD).</div>
+      <div class="card"><div class="big">5 markets</div>Remote-international, US, Australia, Malaysia &amp; Indonesia — each tagged and comparable.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>🌏 Indonesia vs. remote-international</h2>
+    <p class="sub">The markets want different things — useful if you're deciding which to target.</p>
+    <table>
+      <tr><th>Indonesia (local)</th><th>Remote-international</th></tr>
+      <tr><td><strong>SQL 77%</strong>, Python 73%</td><td><strong>Python 57%</strong>, SQL 37%</td></tr>
+      <tr><td>Tableau 38%, Power BI 35% <span class="pill">BI-heavy</span></td><td>AWS 19%, Git 17% <span class="pill">cloud/eng</span></td></tr>
+      <tr><td>ETL 35%, Airflow 27% <span class="pill">data-eng</span></td><td>Machine Learning 33%</td></tr>
+    </table>
+    <p class="sub" style="margin-top:14px;">Indonesian roles lean <strong>analyst / BI</strong> (SQL + a BI tool are near-mandatory); remote roles lean <strong>Python + ML + cloud</strong>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Charts</h2>
+    <p class="sub">Generated reproducibly from the warehouse (<code>python -m src.figures</code>).</p>
+    <div class="grid2">
+      <figure><img src="figures/demand_top_skills.png" alt="Most in-demand skills">
+        <figcaption>Most in-demand skills across all postings.</figcaption></figure>
+      <figure><img src="figures/salary_by_skill.png" alt="Median salary by skill">
+        <figcaption>Median advertised salary by skill (USD, advertised only).</figcaption></figure>
+      <figure><img src="figures/roles.png" alt="Postings and pay by role">
+        <figcaption>Volume and median pay by role family.</figcaption></figure>
+      <figure><img src="figures/skill_cooccurrence.png" alt="Skill co-occurrence">
+        <figcaption>Which skills appear together (Python+SQL is the backbone).</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>How it works</h2>
+    <p class="sub">Collect → normalize → extract skills → analyze → model → dashboard. Tested (41 unit tests) and reproducible.</p>
+    <div class="cards">
+      <div class="card"><strong>Sourcing</strong><br>6 public APIs (Remotive, Jobicy, RemoteOK, Adzuna, Jooble, JSearch) into one normalized, deduplicated warehouse.</div>
+      <div class="card"><strong>Skill extraction</strong><br>Curated taxonomy + a matcher that resolves ambiguous names (<code>R</code> vs "R&amp;D", <code>Java</code> vs <code>JavaScript</code>, <code>Excel</code> vs the verb).</div>
+      <div class="card"><strong>Modeling</strong><br>Baseline-first, cross-validated salary model with honest error reporting and interpretable coefficients.</div>
+    </div>
+    <p class="note" style="margin-top:20px;"><strong>Honest by design:</strong> Adzuna-predicted salaries are excluded from pay stats;
+       demand is audited per source (some APIs truncate descriptions); and Indonesian postings rarely advertise salary —
+       all stated openly rather than papered over.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Built with Python · pandas · scikit-learn · Streamlit ·
+    <a href="https://github.com/USER/REPO">source on GitHub</a><br>
+    A portfolio project — the interactive dashboard runs via <code>streamlit run app.py</code>.
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------------
+# Pipeline configuration
+# ---------------------------------------------------------------------------
+# Search terms drive what we collect. Keep them focused on the slice of the
+# market you want to analyze (here: data roles). Add/remove freely.
+search_terms:
+  - data analyst
+  - data scientist
+  - data engineer
+  - machine learning
+  - business intelligence
+
+# How many postings to pull per source per run (keep modest to be a polite
+# API citizen; the warehouse accumulates over time as you run it on a schedule).
+limit_per_source: 100
+
+# Toggle sources on/off. All sources below are free and require no API key.
+sources:
+  remotive:
+    enabled: true
+  jobicy:
+    enabled: true
+  remoteok:            # Popular remote board (free, no key). Title-filtered to
+    enabled: true      # real data roles (its tags are SEO-spam).
+  jsearch:             # Aggregates Google for Jobs (LinkedIn/Indeed/Glassdoor).
+    enabled: true      # The only good source of local Indonesia/Malaysia data.
+    countries:         # focus on local markets (international is already covered
+      - id             # Indonesia        by Remotive/Jobicy/RemoteOK). Each
+      - my             # Malaysia         country = 5 requests/run on the free tier.
+    num_pages: 1       # keep small — free tier is rate-limited
+  adzuna:              # Broad, non-remote coverage + structured salaries.
+    enabled: true      # Keys live in .env (ADZUNA_APP_ID / ADZUNA_APP_KEY).
+    countries:         # one market per country. NOTE: Adzuna has no Indonesia/
+      - us             # Malaysia — those come from Jooble (see below).
+      - au             # Australia: an accessible APAC market with real salaries.
+  jooble:              # Indonesia + Malaysia local postings (key in .env).
+    enabled: true
+    locations:
+      - Indonesia
+      - Malaysia
