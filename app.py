@@ -68,7 +68,7 @@ jobs, skills = get_data()
 
 st.title("📊 Data Job Market Intelligence")
 st.caption("What skills are in demand for data roles, what do they pay, and how "
-           "do roles compare — from public job-posting APIs, end to end.")
+           "do roles compare, from public job-posting APIs, end to end.")
 
 if jobs.empty:
     st.error("No data found. Run `python -m src.collect` then "
@@ -77,13 +77,14 @@ if jobs.empty:
 
 with st.expander("ℹ️ How to read this (sources, caveats)"):
     st.markdown(
-        "- **Sources:** Remotive + Jobicy (real advertised salaries, remote-only) "
-        "and Adzuna (broad coverage; most salaries are *estimates*, which are "
-        "flagged and excluded from all salary figures).\n"
-        "- **Salary numbers** use only *genuinely advertised* USD annual salaries.\n"
+        "- **Sources:** six public APIs (Remotive, Jobicy, RemoteOK, JSearch, "
+        "Jooble, Adzuna). Adzuna's salaries are mostly *estimates*, which are "
+        "flagged and excluded from every salary figure.\n"
+        "- **Salary numbers** use only *genuinely advertised* pay, normalized to "
+        "USD/year; the Pay tab's salary audit shows exactly what was excluded.\n"
         "- **Skill extraction** is dictionary-based, so demand %s are lower bounds.\n"
-        "- Samples are still small — treat everything as directional, firming up "
-        "as the collector accumulates data.")
+        "- Treat everything as directional; it firms up as the collector "
+        "accumulates data.")
 
 # --- Sidebar filters ---
 st.sidebar.header("Filters")
@@ -136,6 +137,14 @@ with t_pay:
                "(USD/yr, skills with ≥5 such postings).")
     show_fig(figures.build_salary_by_skill(fjobs, fskills),
              "Not enough advertised-salary postings under these filters yet.")
+    with st.expander("📋 Salary audit (what the salary rules kept and dropped)"):
+        st.caption(f"Non-USD and non-annual pay is converted with a static FX "
+                   f"table dated {analysis.FX_AS_OF}, static so a re-run in six "
+                   f"months reproduces today's chart. Salaries outside "
+                   f"${analysis.SALARY_BAND[0]:,}–${analysis.SALARY_BAND[1]:,} are "
+                   f"treated as parse failures (a $162/yr engineer is a lost "
+                   f"'per hour'), and counted here rather than dropped silently.")
+        st.dataframe(analysis.salary_audit(fjobs), hide_index=True, width="stretch")
 
 with t_roles:
     show_fig(figures.build_roles(fjobs))
@@ -146,22 +155,32 @@ with t_cooc:
 
 with t_predict:
     st.subheader("Estimate a salary")
-    st.caption("A deliberately humble RidgeCV model trained on advertised USD "
-               "salaries. Directional only — see caveats above.")
+    st.caption("Two ridge regressions (one on log-pay, one on dollars) averaged, "
+               "trained on advertised salaries normalized to USD/year. "
+               "Directional only; see caveats above.")
     pipe, n_train = get_model()
     pc1, pc2 = st.columns(2)
     with pc1:
         role = st.selectbox("Role", ["Data Analyst", "Data Scientist",
                                      "Data Engineer", "ML Engineer", "Other"])
         seniority = st.select_slider("Seniority", list(SENIORITY), value="Mid")
+        location = st.selectbox(
+            "Location", model.LOCATIONS, index=model.LOCATIONS.index("US"),
+            help="The single largest driver of advertised pay in this data: "
+                 "a US posting carries roughly +$38k over the average.")
         remote = st.checkbox("Remote", value=True)
     with pc2:
         picked = st.multiselect("Skills", SKILL_NAMES,
                                 default=["Python", "SQL"])
-    pred = model.predict_salary(pipe, role, SENIORITY[seniority], remote, picked)
+        years = st.slider("Years of experience required", 0, 15, 3)
+    pred = model.predict_salary(pipe, role, SENIORITY[seniority], remote, picked,
+                                location=location, years_exp=float(years))
     st.metric("Predicted advertised salary", f"${pred:,.0f}")
-    st.caption(f"Model trained on {n_train} advertised-salary postings · "
-               "cross-validated MAE ≈ $37k. Don't quote it as fact.")
+    st.caption(f"Trained on {n_train} advertised-salary postings · "
+               "MAE ≈ $39k, R² 0.32 when cross-validated across *held-out "
+               "companies* (the honest split, see the README). The offline "
+               "model, which also reads the job description, reaches R² 0.46. "
+               "Don't quote either as fact.")
 
 with t_explore:
     st.caption("Filtered postings. Use the sidebar to narrow down.")

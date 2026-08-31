@@ -4,20 +4,24 @@
 
 Two questions it answers:
   1. **Demand** — which skills appear in the most postings?
-  2. **Pay** — among postings with a *genuinely advertised* USD annual salary,
-     which skills are associated with higher median pay?
+  2. **Pay** — among postings with a *genuinely advertised* salary, which
+     skills are associated with higher median pay?
 
-Salary analysis is deliberately strict: advertised (not Adzuna-predicted),
-annual, USD only — so we compare like with like. Small-sample skills are hidden
-behind ``MIN_N`` because a median over 2 postings is noise, not signal.
+Salary analysis is deliberately strict: advertised only (never Adzuna-predicted),
+normalized to USD/year with a dated FX table so we compare like with like, and
+bounded to a plausible band whose exclusions are reported rather than hidden.
+Small-sample skills stay behind ``MIN_N`` because a median over 2 postings is
+noise, not signal.
 """
 from __future__ import annotations
 
 from .analysis import (
+    FX_AS_OF,
     MIN_N,
-    build_salary_table,
+    SALARY_BAND,
     demand_table,
     quality_by_source,
+    salary_audit,
     salary_by_role,
     salary_by_skill,
 )
@@ -66,9 +70,13 @@ def print_report(top: int = 15) -> None:
     print("  (Adzuna returns truncated ~500-char teasers, so its low skill counts are")
     print("   missing data, not low demand -- weigh the rich-description sources more.)")
 
-    sal_n = len(build_salary_table(jobs))
-    print(f"\nNote: salary figures use {sal_n} postings with a genuinely advertised "
-          f"USD annual salary\n(Adzuna-predicted salaries excluded). Numbers firm up as data accumulates.")
+    print("\nSALARY AUDIT  (what the salary rules kept and dropped)")
+    for _, r in salary_audit(jobs).iterrows():
+        print(f"  {r['outcome']:<38}{r['postings']:>6}")
+    print(f"  FX table dated {FX_AS_OF}; plausible band "
+          f"${SALARY_BAND[0]:,}-${SALARY_BAND[1]:,}.")
+    print("  Adzuna-predicted salaries are never counted -- modeling those would")
+    print("  mean modeling Adzuna's model. Numbers firm up as data accumulates.")
 
 
 if __name__ == "__main__":

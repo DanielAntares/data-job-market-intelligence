@@ -13,6 +13,35 @@ import pandas as pd
 
 MIN_N = 5  # minimum postings before a per-group salary median is trustworthy
 
+# --- Salary normalization ---------------------------------------------------
+# Sources advertise in their own currency and period. Comparing them means
+# converting to one unit: USD per year.
+#
+# The rates are a *static* table, on purpose. A live FX API would make every
+# re-run of the pipeline produce different numbers, so a chart regenerated in
+# six months could not be reproduced. Static + dated is the reproducible
+# choice; refresh the table deliberately and note it in the commit.
+#
+# Source: ECB reference rates via frankfurter.dev, 2026-08-28, cross-checked
+# against open.er-api.com (agreement within 0.5% on every pair). Values are
+# USD per 1 unit of the currency.
+FX_AS_OF = "2026-08-28"
+FX_TO_USD = {
+    "USD": 1.0, "EUR": 1.164, "GBP": 1.358, "CAD": 0.722, "AUD": 0.719,
+    "NZD": 0.595, "CHF": 1.243, "SEK": 0.105, "PLN": 0.268, "CZK": 0.0482,
+    "BRL": 0.1936, "MXN": 0.0590, "PHP": 0.01606, "SGD": 0.787, "MYR": 0.2484,
+    "INR": 0.01048, "IDR": 0.00005644, "JPY": 0.006262,
+}
+# Hours/periods per year. 2080 = 40h x 52wk, the standard full-time convention.
+PERIOD_TO_YEAR = {"yearly": 1.0, "monthly": 12.0, "weekly": 52.0,
+                  "daily": 260.0, "hourly": 2080.0}
+
+# Salaries outside this band are parse failures, not pay. Real examples caught
+# by it: an "Infrastructure Engineer" at $162/yr (a $150-175/hr rate whose
+# period was lost) and a $500k+ sales VP whose figure includes commission.
+# The cut is small and deliberately auditable -- see salary_audit().
+SALARY_BAND = (15_000, 400_000)
+
 # Minimum description length for a posting to be trustworthy for *skill demand*.
 # Some sources (notably Adzuna) return truncated ~500-char teasers, so a skill's
 # absence there is missing data, not a true "not required". We compute demand
@@ -44,24 +73,87 @@ def classify_role(title: str | None) -> str:
 
 
 def _representative_salary(row) -> float | None:
+    """Midpoint of the advertised range, or the floor when there is no ceiling.
+
+    Deliberately the midpoint, not the min: a posting advertising $120k-$160k
+    is not a $120k job. Nothing derived from the range (its width, whether a
+    max was present) may become a feature -- that would leak the target.
+    """
     lo, hi = row["salary_min"], row["salary_max"]
     if pd.notna(lo) and pd.notna(hi) and hi > 0:
         return (lo + hi) / 2
     return lo if pd.notna(lo) else None
 
 
-def build_salary_table(jobs: pd.DataFrame) -> pd.DataFrame:
-    """One row per posting with a clean, comparable advertised salary."""
+def _normalize(jobs: pd.DataFrame) -> pd.DataFrame:
+    """Every advertised salary converted to USD/year, with a reason column.
+
+    ``excluded`` is empty for usable rows and names the reason otherwise, so
+    nothing is dropped silently -- ``salary_audit()`` reports the tally.
+    """
     predicted = jobs["salary_is_predicted"].fillna(False).astype(bool)
-    mask = (
-        jobs["salary_min"].notna()
-        & ~predicted
-        & (jobs["salary_period"] == "yearly")
-        & (jobs["salary_currency"] == "USD")
-    )
-    sal = jobs.loc[mask, ["job_id", "salary_min", "salary_max"]].copy()
-    sal["salary"] = sal.apply(_representative_salary, axis=1)
-    return sal.dropna(subset=["salary"])[["job_id", "salary"]]
+    adv = jobs.loc[jobs["salary_min"].notna() & ~predicted].copy()
+
+    cur = adv["salary_currency"].fillna("USD")
+    per = adv["salary_period"].fillna("yearly")
+    rate = cur.map(FX_TO_USD)
+    mult = per.map(PERIOD_TO_YEAR)
+
+    adv["salary_currency_norm"] = cur
+    adv["salary_period_norm"] = per
+    adv["converted"] = ((cur != "USD") | (per != "yearly")).astype(int)
+    adv["salary"] = (adv.apply(_representative_salary, axis=1)
+                     * rate * mult)
+
+    lo, hi = SALARY_BAND
+    adv["excluded"] = ""
+    adv.loc[rate.isna(), "excluded"] = "unknown currency"
+    adv.loc[mult.isna(), "excluded"] = "unknown period"
+    adv.loc[adv["salary"].isna() & (adv["excluded"] == ""), "excluded"] = "unparseable"
+    below = adv["salary"].notna() & (adv["salary"] < lo)
+    above = adv["salary"].notna() & (adv["salary"] > hi)
+    adv.loc[below & (adv["excluded"] == ""), "excluded"] = f"below ${lo:,}"
+    adv.loc[above & (adv["excluded"] == ""), "excluded"] = f"above ${hi:,}"
+    return adv
+
+
+def build_salary_table(jobs: pd.DataFrame, *, convert: bool = True,
+                       band: bool = True) -> pd.DataFrame:
+    """One row per posting with a clean, comparable salary in USD/year.
+
+    ``convert=True`` (the default) folds in non-USD and non-annual postings via
+    the dated ``FX_TO_USD`` table -- worth ~26% more usable rows than the
+    USD-annual-only rule this started as. Pass ``convert=False`` for the
+    strict "advertised in USD per year, untouched" subset.
+
+    ``band=True`` drops salaries outside :data:`SALARY_BAND` as parse failures.
+    Pass ``band=False`` to keep them and judge for yourself.
+    """
+    adv = _normalize(jobs)
+    if not convert:
+        adv = adv[(adv["salary_currency_norm"] == "USD")
+                  & (adv["salary_period_norm"] == "yearly")]
+    keep = adv["salary"].notna()
+    if band:
+        keep &= adv["excluded"] == ""
+    else:
+        keep &= ~adv["excluded"].isin(["unknown currency", "unknown period",
+                                       "unparseable"])
+    return adv.loc[keep, ["job_id", "salary", "converted"]].reset_index(drop=True)
+
+
+def salary_audit(jobs: pd.DataFrame) -> pd.DataFrame:
+    """What the salary rules kept and threw away, and why. Surfaced, not hidden."""
+    adv = _normalize(jobs)
+    usable = adv["excluded"] == ""
+    rows = [
+        {"outcome": "usable (USD/yr, in band)", "postings": int(usable.sum())},
+        {"outcome": "  of which FX/period-converted",
+         "postings": int((usable & (adv["converted"] == 1)).sum())},
+    ]
+    for reason, n in adv.loc[~usable, "excluded"].value_counts().items():
+        rows.append({"outcome": f"excluded: {reason}", "postings": int(n)})
+    return pd.DataFrame(rows)
 
 
 def rich_postings(jobs: pd.DataFrame, min_chars: int = RICH_DESC_CHARS) -> pd.DataFrame:

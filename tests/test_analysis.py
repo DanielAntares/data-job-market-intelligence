@@ -94,3 +94,45 @@ def test_quality_by_source_reports_coverage():
     assert q.loc["jsearch", "pct_with_skill"] == 100   # both jsearch posts have a skill
     assert q.loc["adzuna", "pct_with_skill"] == 0       # adzuna post has none
     assert q.loc["adzuna", "avg_desc_chars"] == 400
+
+
+def _mixed_currency_jobs():
+    """Advertised pay in several currencies and periods, plus two parse failures."""
+    return pd.DataFrame({
+        "job_id": ["usd", "eur", "hourly", "too_low", "too_high", "predicted"],
+        "title": ["Data Analyst"] * 6,
+        "salary_min": [100000, 100000, 50, 150, 900000, 120000],
+        "salary_max": [100000, 100000, 50, 175, 900000, 120000],
+        "salary_period": ["yearly", "yearly", "hourly", "yearly", "yearly", "yearly"],
+        "salary_currency": ["USD", "EUR", "USD", "USD", "USD", "USD"],
+        "salary_is_predicted": [False, False, False, False, False, True],
+    })
+
+
+def test_salary_table_converts_currency_and_period():
+    sal = analysis.build_salary_table(_mixed_currency_jobs())
+    by_id = sal.set_index("job_id")["salary"]
+    assert set(by_id.index) == {"usd", "eur", "hourly"}  # band + predicted excluded
+    assert by_id["eur"] == 100000 * analysis.FX_TO_USD["EUR"]
+    assert by_id["hourly"] == 50 * analysis.PERIOD_TO_YEAR["hourly"]
+    assert sal.set_index("job_id")["converted"].to_dict() == {
+        "usd": 0, "eur": 1, "hourly": 1}
+
+
+def test_salary_table_convert_false_is_the_strict_usd_annual_subset():
+    sal = analysis.build_salary_table(_mixed_currency_jobs(), convert=False)
+    assert set(sal["job_id"]) == {"usd"}
+
+
+def test_salary_band_is_opt_out_not_mandatory():
+    kept = analysis.build_salary_table(_mixed_currency_jobs(), band=False)
+    assert {"too_low", "too_high"} <= set(kept["job_id"])
+
+
+def test_salary_audit_accounts_for_every_excluded_posting():
+    audit = analysis.salary_audit(_mixed_currency_jobs())
+    counts = audit.set_index("outcome")["postings"]
+    assert counts["usable (USD/yr, in band)"] == 3
+    assert counts["  of which FX/period-converted"] == 2
+    assert counts["excluded: below $15,000"] == 1
+    assert counts["excluded: above $400,000"] == 1
