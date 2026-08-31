@@ -58,10 +58,10 @@
 <section id="findings">
   <div class="wrap">
     <h2>Key findings</h2>
-    <p class="sub">From ~440 postings across 5 markets and 6 sources. Directional, not definitive — they sharpen as the collector accumulates data.</p>
+    <p class="sub">From 2,367 postings across 5 markets and 6 sources, accumulated by a weekly scheduled collector. Directional, not definitive — they sharpen as the data grows.</p>
     <div class="cards">
-      <div class="card"><div class="big">SQL + Python</div>dominate demand in every market — the non-negotiable core for data roles.</div>
-      <div class="card g"><div class="big">$115k → $165k</div>median advertised salary rises Analyst → Scientist → ML Engineer (remote USD).</div>
+      <div class="card"><div class="big">Python + SQL</div>lead demand in every market (19% and 14% of all postings) — the non-negotiable core for data roles.</div>
+      <div class="card g"><div class="big">$112k → $162k</div>median advertised salary rises Analyst → Scientist → ML Engineer, normalized to USD/year.</div>
       <div class="card"><div class="big">5 markets</div>Remote-international, US, Australia, Malaysia &amp; Indonesia — each tagged and comparable.</div>
     </div>
   </div>
@@ -72,10 +72,10 @@
     <h2>🌏 Indonesia vs. remote-international</h2>
     <p class="sub">The markets want different things — useful if you're deciding which to target.</p>
     <table>
-      <tr><th>Indonesia (local)</th><th>Remote-international</th></tr>
-      <tr><td><strong>SQL 77%</strong>, Python 73%</td><td><strong>Python 57%</strong>, SQL 37%</td></tr>
-      <tr><td>Tableau 38%, Power BI 35% <span class="pill">BI-heavy</span></td><td>AWS 19%, Git 17% <span class="pill">cloud/eng</span></td></tr>
-      <tr><td>ETL 35%, Airflow 27% <span class="pill">data-eng</span></td><td>Machine Learning 33%</td></tr>
+      <tr><th>Indonesia (local, n=33)</th><th>Remote-international (n=1,362)</th></tr>
+      <tr><td><strong>SQL 61%</strong>, Python 58%</td><td><strong>Python 28%</strong>, SQL 19%</td></tr>
+      <tr><td>Tableau 30%, Power BI 27% <span class="pill">BI-heavy</span></td><td>AWS 18%, Git 13% <span class="pill">cloud/eng</span></td></tr>
+      <tr><td>Statistics 33%, ETL 27% <span class="pill">analyst core</span></td><td>Machine Learning 14%, Kubernetes 11%</td></tr>
     </table>
     <p class="sub" style="margin-top:14px;">Indonesian roles lean <strong>analyst / BI</strong> (SQL + a BI tool are near-mandatory); remote roles lean <strong>Python + ML + cloud</strong>.</p>
   </div>
@@ -89,7 +89,7 @@
       <figure><img src="figures/demand_top_skills.png" alt="Most in-demand skills">
         <figcaption>Most in-demand skills across all postings.</figcaption></figure>
       <figure><img src="figures/salary_by_skill.png" alt="Median salary by skill">
-        <figcaption>Median advertised salary by skill (USD, advertised only).</figcaption></figure>
+        <figcaption>Median advertised salary by skill (advertised only, normalized to USD/year).</figcaption></figure>
       <figure><img src="figures/roles.png" alt="Postings and pay by role">
         <figcaption>Volume and median pay by role family.</figcaption></figure>
       <figure><img src="figures/skill_cooccurrence.png" alt="Skill co-occurrence">
@@ -100,16 +100,49 @@
 
 <section>
   <div class="wrap">
+    <h2>🤖 Predicting advertised salary</h2>
+    <p class="sub">693 postings carry a genuinely advertised salary, from 293 companies. The interesting part is <em>where the accuracy came from</em>.</p>
+    <div class="grid2">
+      <div>
+        <table>
+          <tr><th>Model</th><th>MAE</th><th>R² (grouped)</th></tr>
+          <tr><td>Baseline: predict the median</td><td>$50.4k</td><td>-0.02</td></tr>
+          <tr><td>Role + skills only</td><td>$46.5k</td><td>0.12</td></tr>
+          <tr><td>+ location / source / market</td><td>$37.4k</td><td>0.37</td></tr>
+          <tr><td>+ description features</td><td>$37.0k</td><td>0.38</td></tr>
+          <tr><td>Gradient boosting</td><td>$39.9k</td><td>0.27</td></tr>
+          <tr><td><strong>Blend of two ridge models</strong></td><td><strong>$33.5k</strong></td><td><strong>0.46</strong></td></tr>
+        </table>
+        <p class="sub" style="margin-top:14px;"><strong>R² went from 0.12 to 0.46 without changing the algorithm.</strong>
+           Every point came from data work: normalizing currencies and pay periods (+26% usable rows),
+           using the <code>location</code>, <code>source</code> and <code>category</code> columns that were
+           already collected but never read, and mining the ~6,600-character job descriptions
+           for required years of experience. Gradient boosting <em>lost</em> to the linear model.</p>
+      </div>
+      <figure><img src="figures/model_eval.png" alt="Predicted vs actual salary on held-out companies">
+        <figcaption>Out-of-fold predictions on companies the model never saw in training.</figcaption></figure>
+    </div>
+    <p class="note" style="margin-top:20px;"><strong>A leak I found in my own evaluation.</strong>
+       293 companies supply those 693 postings, so a random train/test split routinely puts the same
+       employer on both sides and the model simply memorises that company's pay band. Switching to
+       <code>GroupKFold</code> by company <strong>lowered</strong> the headline R² from 0.56 to 0.46.
+       The lower number is the real one, and both are reported side by side.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
     <h2>How it works</h2>
-    <p class="sub">Collect → normalize → extract skills → analyze → model → dashboard. Tested (41 unit tests) and reproducible.</p>
+    <p class="sub">Collect → normalize → extract skills → analyze → model → dashboard. Tested (51 unit tests, CI on every push) and reproducible.</p>
     <div class="cards">
-      <div class="card"><strong>Sourcing</strong><br>6 public APIs (Remotive, Jobicy, RemoteOK, Adzuna, Jooble, JSearch) into one normalized, deduplicated warehouse.</div>
+      <div class="card"><strong>Sourcing</strong><br>6 public APIs (Remotive, Jobicy, RemoteOK, Adzuna, Jooble, JSearch) into one normalized, deduplicated warehouse, refreshed weekly by GitHub Actions.</div>
       <div class="card"><strong>Skill extraction</strong><br>Curated taxonomy + a matcher that resolves ambiguous names (<code>R</code> vs "R&amp;D", <code>Java</code> vs <code>JavaScript</code>, <code>Excel</code> vs the verb).</div>
-      <div class="card"><strong>Modeling</strong><br>Baseline-first, cross-validated salary model with honest error reporting and interpretable coefficients.</div>
+      <div class="card"><strong>Modeling</strong><br>Baselines first, cross-validation grouped by company, and interpretable coefficients — designed so the honest number is the one on display.</div>
     </div>
     <p class="note" style="margin-top:20px;"><strong>Honest by design:</strong> Adzuna-predicted salaries are excluded from pay stats;
-       demand is audited per source (some APIs truncate descriptions); and Indonesian postings rarely advertise salary —
-       all stated openly rather than papered over.</p>
+       demand is audited per source (some APIs truncate descriptions); currency conversion uses a dated, static rate table
+       so any chart can be reproduced later; salaries outside a plausible band are counted in an audit rather than
+       silently dropped; and Indonesian postings rarely advertise salary — all stated openly rather than papered over.</p>
   </div>
 </section>
 
